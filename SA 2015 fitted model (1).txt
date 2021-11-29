@@ -1,0 +1,56 @@
+library(ggplot2)                  
+library(matrixcalc)                 
+                  
+#reading the data in                  
+df2 <- read.LIS('za15h')                        
+                  
+                  
+Y <- df2$hilabour     
+print(length(Y))    
+                    
+print(summary(Y, digits=10))                       
+print(sum(!is.na(Y)))                       
+                      
+                     
+                     
+df2 <- df2[Y>0 & !is.na(Y),]     #excluding all 0 values              
+                  
+weights <- df2$hwgt                  
+                 
+Y <- Y[Y>0 & !is.na(Y)]     
+  
+print(Y[Y<100])     
+      
+     
+newweight <- weights[Y>=15409.08  & Y<=500000]       
+X <- Y[Y>=15409.08  & Y<=500000]/15000    #introducing the threshold and dividing all the values by 15000 
+    
+   
+   
+rig <- function(x,theta, gamma){             
+               
+  inside <- -(x-sqrt(theta*(theta+3*gamma)))^2 #a variable containing the top part of the fraction in the exp             
+  dens <- sqrt((theta*(theta+3*gamma))/(2*pi*gamma*(x^3)))*exp(inside/(2*gamma*x))             
+  return(dens)             
+}             
+             
+ 
+#obtaining values for the fitted distribution             
+X1 <- seq(0.00001,35, by=0.0001)      
+fitY <- rig(X1, 2.385687, 7.967673)     
+  
+#adding some 0 values that have a weight of 0 so that we can draw a proper fitted graph  
+X2<- matrix(0,length(X1),1)   
+X2[1:length(X)] <- X   
+   
+newweight2<- matrix(0,length(X1),1)   
+newweight2[1:length(X)] <- newweight   
+   
+newdat <- data.frame(X2, newweight2,X1,fitY)   
+          
+             
+             
+              
+                
+#the graph           
+ggplot(newdat, aes(x = X2, y = ..density.., weight = newweight2)) + geom_histogram(binwidth = 0.5, colour="black",boundary=0)+geom_line(aes(x=X1,y=fitY), color="red")+labs(x="Household Labour Income in Rands divided by 15 000",y="Density")+scale_x_continuous(breaks=seq(0,35,5)) +theme( axis.text=element_text(size=12), axis.title=element_text(size=12))+theme_light()

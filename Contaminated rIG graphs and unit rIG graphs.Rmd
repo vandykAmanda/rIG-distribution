@@ -1,0 +1,302 @@
+---
+title: "Contaminated rIG"
+output: html_document
+author: Amanda van Dyk
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+```
+
+
+```{r}
+library(VGAM)
+library(ggplot2)
+library(knitr)
+```
+
+## R Markdown
+This document contains all the code used to draw the graphs in Section 2.1.2 and 2.3.1 of my research report.
+
+The graphs in Section 2.1.2:
+
+```{r}
+
+
+seq2 <- seq(0, 1, by=0.001)
+
+#the density of the unit rIG distribution
+rig1 <- function(x,theta, gamma){
+  dens <- vector()
+  mean <- sqrt(theta*(theta+3*gamma))
+  lambda <- (theta*(theta+3*gamma))/gamma
+  
+  if(x[1]==0){
+    if(lambda/(2*mean^2)<1){
+    dens[1] <- 1000
+    }else{dens[1] <- 0}
+    
+  }
+  else{
+    inside <- (log(x[1])+sqrt(theta*(theta+3*gamma)))^2 #a variable containing the top part of the fraction in the exp
+  dens[1] <- sqrt((theta*(theta+3*gamma))/(2*pi*gamma))*(1/(x[1]*(-log(x[1]))^(3/2)))*exp(inside/(2*gamma*log(x[1])))}
+  
+  for(i in 2:(length(x)) ){
+   inside <- (log(x[i])+sqrt(theta*(theta+3*gamma)))^2 #a variable containing the top part of the fraction in the exp
+  dens[i] <- sqrt((theta*(theta+3*gamma))/(2*pi*gamma))*(1/(x[i]*(-log(x[i]))^(3/2)))*exp(inside/(2*gamma*log(x[i])))
+  #if(dens[i]>3){
+  #  dens[i]<-3.2  } 
+  }
+  
+  if(x[length(x)]==1){
+    dens[length(x)]=0
+  }
+  
+  return(dens)
+}
+```
+
+```{r}
+#graphs where we keep gamma=1 and change theta
+g11 <- rig1(seq2,0.5, 1)
+g21 <- rig1(seq2,1, 1)
+g31 <- rig1(seq2,3, 1)
+
+
+
+dfa <- data.frame(
+  x = seq2,
+  y1=g11,
+  z=factor(matrix(1,length(seq2),1)))
+#z=factor(matrix(1,length(seq1),1))
+dfb <- data.frame(
+  x = seq2,
+  y1=g21,
+  z=factor(matrix(2,length(seq2),1))
+)
+
+dfc <- data.frame(
+  x = seq2,
+  y1=g31,
+  z=factor(matrix(3,length(seq2),1))
+)
+ 
+dfd <-rbind.data.frame(dfa, dfb,dfc)
+
+#if you ever want to add a caption that contains greek letters labs(caption=expression("a." ~ theta ~ "=0.4" ))
+graph9 <- ggplot(dfd, aes(x, y1, linetype=z))+geom_line(size=1.1) +labs(x="y",y="Density") +theme_light() +theme(plot.caption = element_text(hjust=0.5), legend.text.align = 0.5, legend.key.size=unit(1.1, "cm"), legend.key.width=unit(1.1,"cm"), legend.text = element_text(size=12), legend.title = element_text(size=12), axis.text=element_text(size=12), axis.title=element_text(size=12))+ scale_x_continuous(breaks=seq(0, 1,0.2))+scale_y_continuous(breaks=seq(0,3,0.25))+scale_linetype_discrete(name=expression("The value of"~theta~"is:"), labels=c(expression(theta~"= 0.5"), expression(theta~"= 1"), expression(theta~"= 3"))) +ylim(0,5)
+print(graph9)
+```
+
+
+```{r}
+#graphs where we keep theta=1 and change gamma
+g11 <- rig1(seq2,1, 0.5)
+g21 <- rig1(seq2,1, 1)
+g31 <- rig1(seq2,1, 3)
+
+
+
+dfa <- data.frame(
+  x = seq2,
+  y1=g11,
+  z=factor(matrix(1,length(seq2),1)))
+#z=factor(matrix(1,length(seq1),1))
+dfb <- data.frame(
+  x = seq2,
+  y1=g21,
+  z=factor(matrix(2,length(seq2),1))
+)
+
+dfc <- data.frame(
+  x = seq2,
+  y1=g31,
+  z=factor(matrix(3,length(seq2),1))
+)
+ 
+dfd <-rbind.data.frame(dfa, dfb,dfc)
+
+#if you ever want to add a caption that contains greek letters labs(caption=expression("a." ~ theta ~ "=0.4" ))
+graph10 <- ggplot(dfd, aes(x, y1, linetype=z))+geom_line(size=1.1) +labs(x="y",y="Density") +theme_light() +theme(plot.caption = element_text(hjust=0.5), legend.text.align = 0.5, legend.key.size=unit(1.1, "cm"), legend.key.width=unit(1.1,"cm"), legend.text = element_text(size=12), legend.title = element_text(size=12), axis.text=element_text(size=12), axis.title=element_text(size=12))+ scale_x_continuous(breaks=seq(0, 1,0.2))+scale_y_continuous(breaks=seq(0,3,0.25))+scale_linetype_discrete(name=expression("The value of"~gamma~"is:"), labels=c(expression(gamma~"= 0.5"), expression(gamma~"= 1"), expression(gamma~"= 3"))) +ylim(0,5)
+print(graph10)
+```
+
+
+```{r}
+#graphs where we keep gamma=1 and change theta
+
+seq3 <- seq(0.8, 0.999, by=0.001)
+
+g11 <- rig1(seq3,1, 0.5)
+g21 <- rig1(seq3,1, 1)
+g31 <- rig1(seq3,1, 3)
+
+
+
+dfa <- data.frame(
+  x = seq3,
+  y1=g11,
+  z=factor(matrix(1,length(seq3),1)))
+#z=factor(matrix(1,length(seq1),1))
+dfb <- data.frame(
+  x = seq3,
+  y1=g21,
+  z=factor(matrix(2,length(seq3),1))
+)
+
+dfc <- data.frame(
+  x = seq3,
+  y1=g31,
+  z=factor(matrix(3,length(seq3),1))
+)
+ 
+dfd <-rbind.data.frame(dfa, dfb,dfc)
+
+#if you ever want to add a caption that contains greek letters labs(caption=expression("a." ~ theta ~ "=0.4" ))
+graph10 <- ggplot(dfd, aes(x, y1, linetype=z))+geom_line(size=1.1) +labs(x="y",y="Density") +theme_light() +theme(plot.caption = element_text(hjust=0.5), legend.text.align = 0.5, legend.key.size=unit(1.1, "cm"), legend.key.width=unit(1.1,"cm"), legend.text = element_text(size=12), legend.title = element_text(size=12), axis.text=element_text(size=12), axis.title=element_text(size=12))+ scale_x_continuous(breaks=seq(0.8, 1,0.05))+scale_y_continuous(breaks=seq(0,0.015,0.005))+scale_linetype_discrete(name=expression("The value of"~gamma~"is:"), labels=c(expression(gamma~"= 0.5"), expression(gamma~"= 1"), expression(gamma~"= 3"))) 
+print(graph10)
+```
+
+
+
+```{r}
+#density function of rIG distribution
+rig <- function(x,theta, gamma){
+  
+  inside <- -(x-sqrt(theta*(theta+3*gamma)))^2 #a variable containing the top part of the fraction in the exp
+  dens <- sqrt((theta*(theta+3*gamma))/(2*pi*gamma*(x^3)))*exp(inside/(2*gamma*x))
+  return(dens)
+}
+```
+
+
+
+
+
+The graphs in Section 2.3.1:
+```{r}
+#density of the contaminated rIG distribution
+contam <- function(x,theta,gamma,alpha,beta){
+  dens <- alpha*rig(x,theta,gamma) +(1-alpha)*rig(x,theta,gamma*beta)
+  return(dens)
+}
+```
+
+
+```{r}
+#contaminated changing beta value
+seq1 <- seq(0.00000001,14,0.0001)
+g4 <- contam(seq1, 1, 2, 1, 1) #ref dist
+g5 <- contam(seq1, 1, 2, 0.7, 2)
+g6 <- contam(seq1, 1, 2, 0.7, 10)
+
+df2 <- data.frame(
+  x = seq1,
+  y1=g4,
+  y2=g5,
+  y3=g6
+)
+
+
+df5 <- data.frame(
+  x = seq1,
+  y1=g4,
+  z=factor(matrix(1,length(seq1),1)))
+#z=factor(matrix(1,length(seq1),1))
+df6 <- data.frame(
+  x = seq1,
+  y1=g5,
+  z=factor(matrix(2,length(seq1),1))
+)
+
+df7 <- data.frame(
+  x = seq1,
+  y1=g6,
+  z=factor(matrix(3,length(seq1),1))
+)
+ 
+df8 <-rbind.data.frame(df5, df6, df7)
+```
+
+```{r}
+graph7 <- ggplot(df8, aes(x, y1, linetype=z))+geom_line(size=1.1) +labs(y="Density") +theme_light()+coord_cartesian(xlim=c(0.00,14), ylim=c(0.00,0.375)) +theme(plot.caption = element_text(hjust=0.5), legend.text.align = 0.5, legend.key.size=unit(1.1, "cm"), legend.key.width=unit(1.1,"cm"), legend.text = element_text(size=12), legend.title = element_text(size=12), axis.text=element_text(size=12), axis.title=element_text(size=12))+ scale_x_continuous(breaks=seq(0, 14, 2))+ scale_y_continuous(breaks=seq(0, 0.375, 0.125))+scale_linetype_discrete(name=expression("The value of"~beta~"is:"), labels=c(expression(beta~"= 1"), expression(beta~"= 2"), expression(beta~"= 10"))) #+ggtitle(expression("The PDF of the rIG distribution where"~gamma~"is varied while keeping"~theta~"=1.")) # +scale_linetype_manual(values=c(1="solid", 2="dots", 3="longdash"))
+print(graph7)
+```
+
+```{r}
+#contaminated changing eta value zooming in
+seq2 <- seq(6,16,0.0001)
+g4 <- contam(seq2, 1, 2, 1, 1)
+g5 <- contam(seq2, 1, 2, 0.7, 2)
+g6 <- contam(seq2, 1, 2, 0.7, 10)
+
+df2 <- data.frame(
+  x = seq2,
+  y1=g4,
+  y2=g5,
+  y3=g6
+)
+
+
+df9 <- data.frame(
+  x = seq2,
+  y1=g4,
+  z=factor(matrix(1,length(seq2),1)))
+#z=factor(matrix(1,length(seq1),1))
+df10 <- data.frame(
+  x = seq2,
+  y1=g5,
+  z=factor(matrix(2,length(seq2),1))
+)
+
+df11 <- data.frame(
+  x = seq2,
+  y1=g6,
+  z=factor(matrix(3,length(seq2),1))
+)
+ 
+df12 <-rbind.data.frame(df9, df10, df11)
+
+graph8 <- ggplot(df12, aes(x, y1, linetype=z))+geom_line(size=1.1) +labs(y="Density") +theme_light()+coord_cartesian(xlim=c(6,16), ylim=c(0.00,0.04)) +theme(plot.caption = element_text(hjust=0.5), legend.text.align = 0.5, legend.key.size=unit(1.1, "cm"), legend.key.width=unit(1.1,"cm"), legend.text = element_text(size=12), legend.title = element_text(size=12), axis.text=element_text(size=12), axis.title=element_text(size=12))+ scale_x_continuous(breaks=seq(6, 16, 2))+ scale_y_continuous(breaks=seq(0, 0.04, 0.02))+scale_linetype_discrete(name=expression("The value of"~beta~"is:"), labels=c(expression(beta~"= 1"), expression(beta~"= 2"), expression(beta~"= 10"))) #+ggtitle(expression("The PDF of the rIG distribution where"~gamma~"is varied while keeping"~theta~"=1.")) # +scale_linetype_manual(values=c(1="solid", 2="dots", 3="longdash"))
+print(graph8)
+```
+```{r}
+#showing how the contaminated is formed
+seq1 <- seq(0.00000001,14,0.0001)
+g4 <- rig(seq1, 1, 2) #ref dist
+g5 <- rig(seq1, 1, 10)
+g6 <- contam(seq1, 1,2,0.7,5)
+
+df2 <- data.frame(
+  x = seq1,
+  y1=g4,
+  y2=g5,
+  y3=g6
+)
+
+
+df5 <- data.frame(
+  x = seq1,
+  y1=g4,
+  z=factor(matrix(1,length(seq1),1)))
+#z=factor(matrix(1,length(seq1),1))
+df6 <- data.frame(
+  x = seq1,
+  y1=g5,
+  z=factor(matrix(2,length(seq1),1))
+)
+
+df7 <- data.frame(
+  x = seq1,
+  y1=g6,
+  z=factor(matrix(3,length(seq1),1))
+)
+ 
+df1 <-rbind.data.frame(df5, df6, df7)
+```
+
+```{r}
+graph7 <- ggplot(df1, aes(x, y1, linetype=z))+geom_line(size=1) +labs(y="Density") +theme_light()+coord_cartesian(xlim=c(0.00,14), ylim=c(0.00,0.375)) +theme(plot.caption = element_text(hjust=0.5), legend.text.align = 0, legend.key.size=unit(1.1, "cm"), legend.key.width=unit(1.1,"cm"), legend.text = element_text(size=12), legend.title = element_text(size=12), axis.text=element_text(size=12), axis.title=element_text(size=12))+ scale_x_continuous(breaks=seq(0, 14, 2))+ scale_y_continuous(breaks=seq(0, 0.375, 0.125))+scale_linetype_discrete(name=expression("The distribution is:"), labels=c(expression("rIG(1,2)"), expression("rIG(1,10)"), expression("Contaminated rIG distribution"))) #+ggtitle(expression("The PDF of the rIG distribution where"~gamma~"is varied while keeping"~theta~"=1.")) # +scale_linetype_manual(values=c(1="solid", 2="dots", 3="longdash"))
+print(graph7)
+```
+

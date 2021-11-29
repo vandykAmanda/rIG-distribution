@@ -1,0 +1,443 @@
+library(ggplot2)         
+library(matrixcalc)        
+         
+         
+df2 <- read.LIS('za15h')        #2015 data       
+         
+         
+Y <- df2$hilabour            
+print(summary(Y, digits=10))              
+        
+               
+df2 <- df2[Y>0 & !is.na(Y),]          
+         
+weights <- df2$hwgt         
+print(summary(weights))          
+print(length(weights))         
+Y <- Y[Y>0 & !is.na(Y)]        
+                     
+       
+#**************************MWL********************************       
+    
+#the data       
+newweight <- weights[Y>=15409.08  & Y<=500000]         
+X <- Y[Y>=15409.08  & Y<=500000]/15000 #introducing thresholds and dividing by 15 000       
+    
+    
+#the density of the rIG distribution    
+rig <- function(x,theta, gamma){    
+      
+  inside <- -(x-sqrt(theta*(theta+3*gamma)))^2 #a variable containing the top part of the fraction in the exp    
+  dens <- sqrt((theta*(theta+3*gamma))/(2*pi*gamma*(x^3)))*exp(inside/(2*gamma*x))    
+  return(dens)    
+}    
+  
+#the first derivative for the dAIC function   
+partial11 <- function(x,theta,gamma){    
+      
+  dtheta <- (0.5 * (((theta + 3 * gamma) + theta)/(2 * pi * gamma * (x^3)) *     
+    ((theta * (theta + 3 * gamma))/(2 * pi * gamma * (x^3)))^-0.5) *     
+    exp((-(x - sqrt(theta * (theta + 3 * gamma)))^2)/(2 * gamma *     
+        x)) + sqrt((theta * (theta + 3 * gamma))/(2 * pi * gamma *     
+    (x^3))) * (exp((-(x - sqrt(theta * (theta + 3 * gamma)))^2)/(2 *     
+    gamma * x)) * (2 * (0.5 * (((theta + 3 * gamma) + theta) *     
+    (theta * (theta + 3 * gamma))^-0.5) * (x - sqrt(theta * (theta +     
+    3 * gamma))))/(2 * gamma * x))))/(sqrt((theta * (theta +     
+    3 * gamma))/(2 * pi * gamma * (x^3))) * exp((-(x - sqrt(theta *     
+    (theta + 3 * gamma)))^2)/(2 * gamma * x)))    
+        
+  dgamma <- (0.5 * ((theta * 3/(2 * pi * gamma * (x^3)) - (theta * (theta +     
+    3 * gamma)) * (2 * pi * (x^3))/(2 * pi * gamma * (x^3))^2) *     
+    ((theta * (theta + 3 * gamma))/(2 * pi * gamma * (x^3)))^-0.5) *     
+    exp((-(x - sqrt(theta * (theta + 3 * gamma)))^2)/(2 * gamma *     
+        x)) + sqrt((theta * (theta + 3 * gamma))/(2 * pi * gamma *     
+    (x^3))) * (exp((-(x - sqrt(theta * (theta + 3 * gamma)))^2)/(2 *     
+    gamma * x)) * (2 * (0.5 * (theta * 3 * (theta * (theta +     
+    3 * gamma))^-0.5) * (x - sqrt(theta * (theta + 3 * gamma))))/(2 *     
+    gamma * x) - (-(x - sqrt(theta * (theta + 3 * gamma)))^2) *     
+    (2 * x)/(2 * gamma * x)^2)))/(sqrt((theta * (theta + 3 *     
+    gamma))/(2 * pi * gamma * (x^3))) * exp((-(x - sqrt(theta *     
+    (theta + 3 * gamma)))^2)/(2 * gamma * x)))    
+      
+      
+  d1 <- cbind(dtheta,dgamma)    
+    return(d1)    
+}    
+    
+    
+#the second derivative for the dAIC function    
+partial22 <- function(x,theta,gamma){    
+  dthetatheta <- (0.5 * ((1 + 1)/(2 * pi * gamma * (x^3)) * ((theta * (theta +     
+    3 * gamma))/(2 * pi * gamma * (x^3)))^-0.5 + ((theta + 3 *     
+    gamma) + theta)/(2 * pi * gamma * (x^3)) * (-0.5 * (((theta +     
+    3 * gamma) + theta)/(2 * pi * gamma * (x^3)) * ((theta *     
+    (theta + 3 * gamma))/(2 * pi * gamma * (x^3)))^-1.5))) *     
+    exp((-(x - sqrt(theta * (theta + 3 * gamma)))^2)/(2 * gamma *     
+        x)) + 0.5 * (((theta + 3 * gamma) + theta)/(2 * pi *     
+    gamma * (x^3)) * ((theta * (theta + 3 * gamma))/(2 * pi *     
+    gamma * (x^3)))^-0.5) * (exp((-(x - sqrt(theta * (theta +     
+    3 * gamma)))^2)/(2 * gamma * x)) * (2 * (0.5 * (((theta +     
+    3 * gamma) + theta) * (theta * (theta + 3 * gamma))^-0.5) *     
+    (x - sqrt(theta * (theta + 3 * gamma))))/(2 * gamma * x))) +     
+    (0.5 * (((theta + 3 * gamma) + theta)/(2 * pi * gamma * (x^3)) *     
+        ((theta * (theta + 3 * gamma))/(2 * pi * gamma * (x^3)))^-0.5) *     
+        (exp((-(x - sqrt(theta * (theta + 3 * gamma)))^2)/(2 *     
+            gamma * x)) * (2 * (0.5 * (((theta + 3 * gamma) +     
+            theta) * (theta * (theta + 3 * gamma))^-0.5) * (x -     
+            sqrt(theta * (theta + 3 * gamma))))/(2 * gamma *     
+            x))) + sqrt((theta * (theta + 3 * gamma))/(2 * pi *     
+        gamma * (x^3))) * (exp((-(x - sqrt(theta * (theta + 3 *     
+        gamma)))^2)/(2 * gamma * x)) * (2 * (0.5 * (((theta +     
+        3 * gamma) + theta) * (theta * (theta + 3 * gamma))^-0.5) *     
+        (x - sqrt(theta * (theta + 3 * gamma))))/(2 * gamma *     
+        x)) * (2 * (0.5 * (((theta + 3 * gamma) + theta) * (theta *     
+        (theta + 3 * gamma))^-0.5) * (x - sqrt(theta * (theta +     
+        3 * gamma))))/(2 * gamma * x)) + exp((-(x - sqrt(theta *     
+        (theta + 3 * gamma)))^2)/(2 * gamma * x)) * (2 * (0.5 *     
+        ((1 + 1) * (theta * (theta + 3 * gamma))^-0.5 + ((theta +     
+            3 * gamma) + theta) * (-0.5 * (((theta + 3 * gamma) +     
+            theta) * (theta * (theta + 3 * gamma))^-1.5))) *     
+        (x - sqrt(theta * (theta + 3 * gamma))) - 0.5 * (((theta +     
+        3 * gamma) + theta) * (theta * (theta + 3 * gamma))^-0.5) *     
+        (0.5 * (((theta + 3 * gamma) + theta) * (theta * (theta +     
+            3 * gamma))^-0.5)))/(2 * gamma * x)))))/(sqrt((theta *     
+    (theta + 3 * gamma))/(2 * pi * gamma * (x^3))) * exp((-(x -     
+    sqrt(theta * (theta + 3 * gamma)))^2)/(2 * gamma * x))) -     
+    (0.5 * (((theta + 3 * gamma) + theta)/(2 * pi * gamma * (x^3)) *     
+        ((theta * (theta + 3 * gamma))/(2 * pi * gamma * (x^3)))^-0.5) *     
+        exp((-(x - sqrt(theta * (theta + 3 * gamma)))^2)/(2 *     
+            gamma * x)) + sqrt((theta * (theta + 3 * gamma))/(2 *     
+        pi * gamma * (x^3))) * (exp((-(x - sqrt(theta * (theta +     
+        3 * gamma)))^2)/(2 * gamma * x)) * (2 * (0.5 * (((theta +     
+        3 * gamma) + theta) * (theta * (theta + 3 * gamma))^-0.5) *     
+        (x - sqrt(theta * (theta + 3 * gamma))))/(2 * gamma *     
+        x)))) * (0.5 * (((theta + 3 * gamma) + theta)/(2 * pi *     
+        gamma * (x^3)) * ((theta * (theta + 3 * gamma))/(2 *     
+        pi * gamma * (x^3)))^-0.5) * exp((-(x - sqrt(theta *     
+        (theta + 3 * gamma)))^2)/(2 * gamma * x)) + sqrt((theta *     
+        (theta + 3 * gamma))/(2 * pi * gamma * (x^3))) * (exp((-(x -     
+        sqrt(theta * (theta + 3 * gamma)))^2)/(2 * gamma * x)) *     
+        (2 * (0.5 * (((theta + 3 * gamma) + theta) * (theta *     
+            (theta + 3 * gamma))^-0.5) * (x - sqrt(theta * (theta +     
+            3 * gamma))))/(2 * gamma * x))))/(sqrt((theta * (theta +     
+        3 * gamma))/(2 * pi * gamma * (x^3))) * exp((-(x - sqrt(theta *     
+        (theta + 3 * gamma)))^2)/(2 * gamma * x)))^2    
+      
+      
+      
+  dthetagamma <- (0.5 * ((3/(2 * pi * gamma * (x^3)) - ((theta + 3 * gamma) +     
+    theta) * (2 * pi * (x^3))/(2 * pi * gamma * (x^3))^2) * ((theta *     
+    (theta + 3 * gamma))/(2 * pi * gamma * (x^3)))^-0.5 + ((theta +     
+    3 * gamma) + theta)/(2 * pi * gamma * (x^3)) * (-0.5 * ((theta *     
+    3/(2 * pi * gamma * (x^3)) - (theta * (theta + 3 * gamma)) *     
+    (2 * pi * (x^3))/(2 * pi * gamma * (x^3))^2) * ((theta *     
+    (theta + 3 * gamma))/(2 * pi * gamma * (x^3)))^-1.5))) *     
+    exp((-(x - sqrt(theta * (theta + 3 * gamma)))^2)/(2 * gamma *     
+        x)) + 0.5 * (((theta + 3 * gamma) + theta)/(2 * pi *     
+    gamma * (x^3)) * ((theta * (theta + 3 * gamma))/(2 * pi *     
+    gamma * (x^3)))^-0.5) * (exp((-(x - sqrt(theta * (theta +     
+    3 * gamma)))^2)/(2 * gamma * x)) * (2 * (0.5 * (theta * 3 *     
+    (theta * (theta + 3 * gamma))^-0.5) * (x - sqrt(theta * (theta +     
+    3 * gamma))))/(2 * gamma * x) - (-(x - sqrt(theta * (theta +     
+    3 * gamma)))^2) * (2 * x)/(2 * gamma * x)^2)) + (0.5 * ((theta *     
+    3/(2 * pi * gamma * (x^3)) - (theta * (theta + 3 * gamma)) *     
+    (2 * pi * (x^3))/(2 * pi * gamma * (x^3))^2) * ((theta *     
+    (theta + 3 * gamma))/(2 * pi * gamma * (x^3)))^-0.5) * (exp((-(x -     
+    sqrt(theta * (theta + 3 * gamma)))^2)/(2 * gamma * x)) *     
+    (2 * (0.5 * (((theta + 3 * gamma) + theta) * (theta * (theta +     
+        3 * gamma))^-0.5) * (x - sqrt(theta * (theta + 3 * gamma))))/(2 *     
+        gamma * x))) + sqrt((theta * (theta + 3 * gamma))/(2 *     
+    pi * gamma * (x^3))) * (exp((-(x - sqrt(theta * (theta +     
+    3 * gamma)))^2)/(2 * gamma * x)) * (2 * (0.5 * (theta * 3 *     
+    (theta * (theta + 3 * gamma))^-0.5) * (x - sqrt(theta * (theta +     
+    3 * gamma))))/(2 * gamma * x) - (-(x - sqrt(theta * (theta +     
+    3 * gamma)))^2) * (2 * x)/(2 * gamma * x)^2) * (2 * (0.5 *     
+    (((theta + 3 * gamma) + theta) * (theta * (theta + 3 * gamma))^-0.5) *     
+    (x - sqrt(theta * (theta + 3 * gamma))))/(2 * gamma * x)) +     
+    exp((-(x - sqrt(theta * (theta + 3 * gamma)))^2)/(2 * gamma *     
+        x)) * (2 * (0.5 * (3 * (theta * (theta + 3 * gamma))^-0.5 +     
+        ((theta + 3 * gamma) + theta) * (-0.5 * (theta * 3 *     
+            (theta * (theta + 3 * gamma))^-1.5))) * (x - sqrt(theta *     
+        (theta + 3 * gamma))) - 0.5 * (((theta + 3 * gamma) +     
+        theta) * (theta * (theta + 3 * gamma))^-0.5) * (0.5 *     
+        (theta * 3 * (theta * (theta + 3 * gamma))^-0.5)))/(2 *     
+        gamma * x) - 2 * (0.5 * (((theta + 3 * gamma) + theta) *     
+        (theta * (theta + 3 * gamma))^-0.5) * (x - sqrt(theta *     
+        (theta + 3 * gamma)))) * (2 * x)/(2 * gamma * x)^2))))/(sqrt((theta *     
+    (theta + 3 * gamma))/(2 * pi * gamma * (x^3))) * exp((-(x -     
+    sqrt(theta * (theta + 3 * gamma)))^2)/(2 * gamma * x))) -     
+    (0.5 * (((theta + 3 * gamma) + theta)/(2 * pi * gamma * (x^3)) *     
+        ((theta * (theta + 3 * gamma))/(2 * pi * gamma * (x^3)))^-0.5) *     
+        exp((-(x - sqrt(theta * (theta + 3 * gamma)))^2)/(2 *     
+            gamma * x)) + sqrt((theta * (theta + 3 * gamma))/(2 *     
+        pi * gamma * (x^3))) * (exp((-(x - sqrt(theta * (theta +     
+        3 * gamma)))^2)/(2 * gamma * x)) * (2 * (0.5 * (((theta +     
+        3 * gamma) + theta) * (theta * (theta + 3 * gamma))^-0.5) *     
+        (x - sqrt(theta * (theta + 3 * gamma))))/(2 * gamma *     
+        x)))) * (0.5 * ((theta * 3/(2 * pi * gamma * (x^3)) -     
+        (theta * (theta + 3 * gamma)) * (2 * pi * (x^3))/(2 *     
+            pi * gamma * (x^3))^2) * ((theta * (theta + 3 * gamma))/(2 *     
+        pi * gamma * (x^3)))^-0.5) * exp((-(x - sqrt(theta *     
+        (theta + 3 * gamma)))^2)/(2 * gamma * x)) + sqrt((theta *     
+        (theta + 3 * gamma))/(2 * pi * gamma * (x^3))) * (exp((-(x -     
+        sqrt(theta * (theta + 3 * gamma)))^2)/(2 * gamma * x)) *     
+        (2 * (0.5 * (theta * 3 * (theta * (theta + 3 * gamma))^-0.5) *     
+            (x - sqrt(theta * (theta + 3 * gamma))))/(2 * gamma *     
+            x) - (-(x - sqrt(theta * (theta + 3 * gamma)))^2) *     
+            (2 * x)/(2 * gamma * x)^2)))/(sqrt((theta * (theta +     
+        3 * gamma))/(2 * pi * gamma * (x^3))) * exp((-(x - sqrt(theta *     
+        (theta + 3 * gamma)))^2)/(2 * gamma * x)))^2    
+      
+  dgammatheta <- (0.5 * ((3/(2 * pi * gamma * (x^3)) - ((theta + 3 * gamma) +     
+    theta) * (2 * pi * (x^3))/(2 * pi * gamma * (x^3))^2) * ((theta *     
+    (theta + 3 * gamma))/(2 * pi * gamma * (x^3)))^-0.5 + (theta *     
+    3/(2 * pi * gamma * (x^3)) - (theta * (theta + 3 * gamma)) *     
+    (2 * pi * (x^3))/(2 * pi * gamma * (x^3))^2) * (-0.5 * (((theta +     
+    3 * gamma) + theta)/(2 * pi * gamma * (x^3)) * ((theta *     
+    (theta + 3 * gamma))/(2 * pi * gamma * (x^3)))^-1.5))) *     
+    exp((-(x - sqrt(theta * (theta + 3 * gamma)))^2)/(2 * gamma *     
+        x)) + 0.5 * ((theta * 3/(2 * pi * gamma * (x^3)) - (theta *     
+    (theta + 3 * gamma)) * (2 * pi * (x^3))/(2 * pi * gamma *     
+    (x^3))^2) * ((theta * (theta + 3 * gamma))/(2 * pi * gamma *     
+    (x^3)))^-0.5) * (exp((-(x - sqrt(theta * (theta + 3 * gamma)))^2)/(2 *     
+    gamma * x)) * (2 * (0.5 * (((theta + 3 * gamma) + theta) *     
+    (theta * (theta + 3 * gamma))^-0.5) * (x - sqrt(theta * (theta +     
+    3 * gamma))))/(2 * gamma * x))) + (0.5 * (((theta + 3 * gamma) +     
+    theta)/(2 * pi * gamma * (x^3)) * ((theta * (theta + 3 *     
+    gamma))/(2 * pi * gamma * (x^3)))^-0.5) * (exp((-(x - sqrt(theta *     
+    (theta + 3 * gamma)))^2)/(2 * gamma * x)) * (2 * (0.5 * (theta *     
+    3 * (theta * (theta + 3 * gamma))^-0.5) * (x - sqrt(theta *     
+    (theta + 3 * gamma))))/(2 * gamma * x) - (-(x - sqrt(theta *     
+    (theta + 3 * gamma)))^2) * (2 * x)/(2 * gamma * x)^2)) +     
+    sqrt((theta * (theta + 3 * gamma))/(2 * pi * gamma * (x^3))) *     
+        (exp((-(x - sqrt(theta * (theta + 3 * gamma)))^2)/(2 *     
+            gamma * x)) * (2 * (0.5 * (((theta + 3 * gamma) +     
+            theta) * (theta * (theta + 3 * gamma))^-0.5) * (x -     
+            sqrt(theta * (theta + 3 * gamma))))/(2 * gamma *     
+            x)) * (2 * (0.5 * (theta * 3 * (theta * (theta +     
+            3 * gamma))^-0.5) * (x - sqrt(theta * (theta + 3 *     
+            gamma))))/(2 * gamma * x) - (-(x - sqrt(theta * (theta +     
+            3 * gamma)))^2) * (2 * x)/(2 * gamma * x)^2) + exp((-(x -     
+            sqrt(theta * (theta + 3 * gamma)))^2)/(2 * gamma *     
+            x)) * (2 * (0.5 * (3 * (theta * (theta + 3 * gamma))^-0.5 +     
+            theta * 3 * (-0.5 * (((theta + 3 * gamma) + theta) *     
+                (theta * (theta + 3 * gamma))^-1.5))) * (x -     
+            sqrt(theta * (theta + 3 * gamma))) - 0.5 * (theta *     
+            3 * (theta * (theta + 3 * gamma))^-0.5) * (0.5 *     
+            (((theta + 3 * gamma) + theta) * (theta * (theta +     
+                3 * gamma))^-0.5)))/(2 * gamma * x) - 2 * (0.5 *     
+            (((theta + 3 * gamma) + theta) * (theta * (theta +     
+                3 * gamma))^-0.5) * (x - sqrt(theta * (theta +     
+            3 * gamma)))) * (2 * x)/(2 * gamma * x)^2))))/(sqrt((theta *     
+    (theta + 3 * gamma))/(2 * pi * gamma * (x^3))) * exp((-(x -     
+    sqrt(theta * (theta + 3 * gamma)))^2)/(2 * gamma * x))) -     
+    (0.5 * ((theta * 3/(2 * pi * gamma * (x^3)) - (theta * (theta +     
+        3 * gamma)) * (2 * pi * (x^3))/(2 * pi * gamma * (x^3))^2) *     
+        ((theta * (theta + 3 * gamma))/(2 * pi * gamma * (x^3)))^-0.5) *     
+        exp((-(x - sqrt(theta * (theta + 3 * gamma)))^2)/(2 *     
+            gamma * x)) + sqrt((theta * (theta + 3 * gamma))/(2 *     
+        pi * gamma * (x^3))) * (exp((-(x - sqrt(theta * (theta +     
+        3 * gamma)))^2)/(2 * gamma * x)) * (2 * (0.5 * (theta *     
+        3 * (theta * (theta + 3 * gamma))^-0.5) * (x - sqrt(theta *     
+        (theta + 3 * gamma))))/(2 * gamma * x) - (-(x - sqrt(theta *     
+        (theta + 3 * gamma)))^2) * (2 * x)/(2 * gamma * x)^2))) *     
+        (0.5 * (((theta + 3 * gamma) + theta)/(2 * pi * gamma *     
+            (x^3)) * ((theta * (theta + 3 * gamma))/(2 * pi *     
+            gamma * (x^3)))^-0.5) * exp((-(x - sqrt(theta * (theta +     
+            3 * gamma)))^2)/(2 * gamma * x)) + sqrt((theta *     
+            (theta + 3 * gamma))/(2 * pi * gamma * (x^3))) *     
+            (exp((-(x - sqrt(theta * (theta + 3 * gamma)))^2)/(2 *     
+                gamma * x)) * (2 * (0.5 * (((theta + 3 * gamma) +     
+                theta) * (theta * (theta + 3 * gamma))^-0.5) *     
+                (x - sqrt(theta * (theta + 3 * gamma))))/(2 *     
+                gamma * x))))/(sqrt((theta * (theta + 3 * gamma))/(2 *     
+        pi * gamma * (x^3))) * exp((-(x - sqrt(theta * (theta +     
+        3 * gamma)))^2)/(2 * gamma * x)))^2    
+      
+      
+  dgammagamma <- (0.5 * ((theta * 3/(2 * pi * gamma * (x^3)) - (theta * (theta +     
+    3 * gamma)) * (2 * pi * (x^3))/(2 * pi * gamma * (x^3))^2) *     
+    (-0.5 * ((theta * 3/(2 * pi * gamma * (x^3)) - (theta * (theta +     
+        3 * gamma)) * (2 * pi * (x^3))/(2 * pi * gamma * (x^3))^2) *     
+        ((theta * (theta + 3 * gamma))/(2 * pi * gamma * (x^3)))^-1.5)) -     
+    (theta * 3 * (2 * pi * (x^3))/(2 * pi * gamma * (x^3))^2 +     
+        (theta * 3 * (2 * pi * (x^3))/(2 * pi * gamma * (x^3))^2 -     
+            (theta * (theta + 3 * gamma)) * (2 * pi * (x^3)) *     
+                (2 * (2 * pi * (x^3) * (2 * pi * gamma * (x^3))))/((2 *     
+                pi * gamma * (x^3))^2)^2)) * ((theta * (theta +     
+        3 * gamma))/(2 * pi * gamma * (x^3)))^-0.5) * exp((-(x -     
+    sqrt(theta * (theta + 3 * gamma)))^2)/(2 * gamma * x)) +     
+    0.5 * ((theta * 3/(2 * pi * gamma * (x^3)) - (theta * (theta +     
+        3 * gamma)) * (2 * pi * (x^3))/(2 * pi * gamma * (x^3))^2) *     
+        ((theta * (theta + 3 * gamma))/(2 * pi * gamma * (x^3)))^-0.5) *     
+        (exp((-(x - sqrt(theta * (theta + 3 * gamma)))^2)/(2 *     
+            gamma * x)) * (2 * (0.5 * (theta * 3 * (theta * (theta +     
+            3 * gamma))^-0.5) * (x - sqrt(theta * (theta + 3 *     
+            gamma))))/(2 * gamma * x) - (-(x - sqrt(theta * (theta +     
+            3 * gamma)))^2) * (2 * x)/(2 * gamma * x)^2)) + (0.5 *     
+    ((theta * 3/(2 * pi * gamma * (x^3)) - (theta * (theta +     
+        3 * gamma)) * (2 * pi * (x^3))/(2 * pi * gamma * (x^3))^2) *     
+        ((theta * (theta + 3 * gamma))/(2 * pi * gamma * (x^3)))^-0.5) *     
+    (exp((-(x - sqrt(theta * (theta + 3 * gamma)))^2)/(2 * gamma *     
+        x)) * (2 * (0.5 * (theta * 3 * (theta * (theta + 3 *     
+        gamma))^-0.5) * (x - sqrt(theta * (theta + 3 * gamma))))/(2 *     
+        gamma * x) - (-(x - sqrt(theta * (theta + 3 * gamma)))^2) *     
+        (2 * x)/(2 * gamma * x)^2)) + sqrt((theta * (theta +     
+    3 * gamma))/(2 * pi * gamma * (x^3))) * (exp((-(x - sqrt(theta *     
+    (theta + 3 * gamma)))^2)/(2 * gamma * x)) * (2 * (0.5 * (theta *     
+    3 * (theta * (theta + 3 * gamma))^-0.5) * (x - sqrt(theta *     
+    (theta + 3 * gamma))))/(2 * gamma * x) - (-(x - sqrt(theta *     
+    (theta + 3 * gamma)))^2) * (2 * x)/(2 * gamma * x)^2) * (2 *     
+    (0.5 * (theta * 3 * (theta * (theta + 3 * gamma))^-0.5) *     
+        (x - sqrt(theta * (theta + 3 * gamma))))/(2 * gamma *     
+    x) - (-(x - sqrt(theta * (theta + 3 * gamma)))^2) * (2 *     
+    x)/(2 * gamma * x)^2) + exp((-(x - sqrt(theta * (theta +     
+    3 * gamma)))^2)/(2 * gamma * x)) * (2 * (0.5 * (theta * 3 *     
+    (-0.5 * (theta * 3 * (theta * (theta + 3 * gamma))^-1.5))) *     
+    (x - sqrt(theta * (theta + 3 * gamma))) - 0.5 * (theta *     
+    3 * (theta * (theta + 3 * gamma))^-0.5) * (0.5 * (theta *     
+    3 * (theta * (theta + 3 * gamma))^-0.5)))/(2 * gamma * x) -     
+    2 * (0.5 * (theta * 3 * (theta * (theta + 3 * gamma))^-0.5) *     
+        (x - sqrt(theta * (theta + 3 * gamma)))) * (2 * x)/(2 *     
+        gamma * x)^2 - (2 * (0.5 * (theta * 3 * (theta * (theta +     
+    3 * gamma))^-0.5) * (x - sqrt(theta * (theta + 3 * gamma)))) *     
+    (2 * x)/(2 * gamma * x)^2 - (-(x - sqrt(theta * (theta +     
+    3 * gamma)))^2) * (2 * x) * (2 * (2 * x * (2 * gamma * x)))/((2 *     
+    gamma * x)^2)^2)))))/(sqrt((theta * (theta + 3 * gamma))/(2 *     
+    pi * gamma * (x^3))) * exp((-(x - sqrt(theta * (theta + 3 *     
+    gamma)))^2)/(2 * gamma * x))) - (0.5 * ((theta * 3/(2 * pi *     
+    gamma * (x^3)) - (theta * (theta + 3 * gamma)) * (2 * pi *     
+    (x^3))/(2 * pi * gamma * (x^3))^2) * ((theta * (theta + 3 *     
+    gamma))/(2 * pi * gamma * (x^3)))^-0.5) * exp((-(x - sqrt(theta *     
+    (theta + 3 * gamma)))^2)/(2 * gamma * x)) + sqrt((theta *     
+    (theta + 3 * gamma))/(2 * pi * gamma * (x^3))) * (exp((-(x -     
+    sqrt(theta * (theta + 3 * gamma)))^2)/(2 * gamma * x)) *     
+    (2 * (0.5 * (theta * 3 * (theta * (theta + 3 * gamma))^-0.5) *     
+        (x - sqrt(theta * (theta + 3 * gamma))))/(2 * gamma *     
+        x) - (-(x - sqrt(theta * (theta + 3 * gamma)))^2) * (2 *     
+        x)/(2 * gamma * x)^2))) * (0.5 * ((theta * 3/(2 * pi *     
+    gamma * (x^3)) - (theta * (theta + 3 * gamma)) * (2 * pi *     
+    (x^3))/(2 * pi * gamma * (x^3))^2) * ((theta * (theta + 3 *     
+    gamma))/(2 * pi * gamma * (x^3)))^-0.5) * exp((-(x - sqrt(theta *     
+    (theta + 3 * gamma)))^2)/(2 * gamma * x)) + sqrt((theta *     
+    (theta + 3 * gamma))/(2 * pi * gamma * (x^3))) * (exp((-(x -     
+    sqrt(theta * (theta + 3 * gamma)))^2)/(2 * gamma * x)) *     
+    (2 * (0.5 * (theta * 3 * (theta * (theta + 3 * gamma))^-0.5) *     
+        (x - sqrt(theta * (theta + 3 * gamma))))/(2 * gamma *     
+        x) - (-(x - sqrt(theta * (theta + 3 * gamma)))^2) * (2 *     
+        x)/(2 * gamma * x)^2)))/(sqrt((theta * (theta + 3 * gamma))/(2 *     
+    pi * gamma * (x^3))) * exp((-(x - sqrt(theta * (theta + 3 *     
+    gamma)))^2)/(2 * gamma * x)))^2    
+      
+  row1 <- cbind(dthetatheta, dthetagamma)    
+      
+  row2 <- cbind(dgammatheta,dgammagamma)    
+      
+    
+        
+  mat <- rbind(row1, row2)    
+  return(mat)    
+      
+      
+      
+}    
+    
+#the weighted log likelihood function of the rIG distribution   
+incomloglikrig<- function(x,theta,gamma,weights){    
+      
+  loglik <- 0    
+      
+  n <- length(x)    
+      
+  for(k in 1:n){    
+    loglik <- loglik + weights[k]*log(rig(x[k],theta,gamma))    
+  }    
+      
+  return(loglik)    
+      
+}    
+    
+    
+#the dAIC function  
+daic2 <- function(x,weights,estimates){ #estimates is a vector containing the estimated theta,gamma    
+    
+n <- length(x)    
+    
+vhat <- matrix(0,2,2)    
+uhat <- matrix(0,2,2)    
+sumweight <-sum(weights)    
+for(i in 1:n){    
+ vhat <- vhat - (weights[i]/sumweight)*partial22(x[i],theta=estimates[1], gamma=estimates[2])     
+     
+ uhat <- uhat - (weights[i]/sumweight)*t(partial11(x[i],theta=estimates[1], gamma=estimates[2]))%*%partial11(x[i],theta=estimates[1], gamma=estimates[2])    
+}    
+    
+    
+l <- incomloglikrig(x,theta=estimates[1],gamma=estimates[2],weights = weights)    
+    
+invv <- matrix.inverse(vhat)    
+    
+dAICval <- 2*l -2*matrix.trace(invv%*%uhat)    
+    
+return(dAICval)    
+}    
+    
+    
+    
+    
+loglikrig <- function(par,x=X,weights=newweight){    
+      
+    theta1 <- par[1]    
+    gamma1 <- par[2]    
+        
+    loglik <- 0    
+        
+    if(theta1<=0){    
+      loglik <- 1000000000    
+      return(loglik)    
+    }    
+        
+    if(gamma1<=0){    
+      loglik <- 100000000    
+      return(loglik)    
+    }    
+        
+        
+        
+        
+    m <- length(x)    
+    for(k in 1:m){    
+       loglik <- loglik + weights[k]*log((rig(x[k],theta1,gamma1)) )     
+      }    
+    negative <- -loglik    
+    return(negative)    
+}    
+    
+    
+    
+#the means and var    
+      
+  means <- mean(X)    
+    
+  lambdahat <- (means^3)/var(X)    
+    
+    
+#getting the initial gamma and theta values    
+      
+  theta1<- means*(sqrt(1+((9*(means^2))/(4*lambdahat^2)))-(3*means)/(2*lambdahat)) #use the values associated with the largest p value    
+      
+  gamma1 <- (means^2)/lambdahat    
+      
+  func <- optim(c(theta1,gamma1), loglikrig,method = "BFGS")    
+      
+  new_theta <- func$par[1]    
+        
+  new_gamma <- func$par[2]    
+        
+  #daicval <- daic(X,newweight, estimates = c(new_theta, new_gamma)) moet nuwe daic funksie skryf vir rIG    
+      
+  print(func)    
+      
+  daicval2 <- daic2(X,newweight,estimates = c(new_theta,new_gamma))    
+      
+  print(daicval2) #the calculated dAIC value

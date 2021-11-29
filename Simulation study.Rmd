@@ -1,0 +1,512 @@
+---
+title: "Simulation study"
+author: "Amanda van Dyk"
+date: "27/10/2021"
+output: html_document
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+```
+
+## R Markdown
+
+This document contains all the code for the simulation study done in Section 3.3 of my research report.
+
+Density of rIG function
+
+```{r}
+rig <- function(x,theta, gamma){
+  
+  inside <- -(x-sqrt(theta*(theta+3*gamma)))^2 #a variable containing the top part of the fraction in the exp
+  dens <- sqrt((theta*(theta+3*gamma))/(2*pi*gamma*(x^3)))*exp(inside/(2*gamma*x))
+  return(dens)
+}
+```
+
+
+
+Density of Contaminated dist
+```{r}
+contam <- function(x,theta,gamma,p,beta){
+  dens <- p*rig(x,theta,gamma) +(1-p)*rig(x,theta,gamma*beta)
+  return(dens)
+}
+```
+
+
+Algorithm for contaminated dist:
+
+```{r}
+#first have the expectation step
+expectationcontam <- function(x,p,theta,gamma,beta){ 
+  exqgivenx <- matrix(0,length(x),1) #this will contain all the E[Qk|xk] only 1 col
+  
+  
+  
+  for(k in 1:length(x)){
+    
+    fx <- contam(x[k],theta,gamma,p,beta)
+    
+    exqgivenx[k] <- (p*rig(x[k],theta,gamma))/fx
+    
+  }
+  
+  return(exqgivenx)
+  
+}
+
+
+
+#second we have the maximization step
+maximizationcontam <- function(x, exqgivenx, theta_old, gamma_old, beta_old){
+  
+  p_new <- vector()
+  theta_new <- vector()
+  gamma_new <-vector()
+  #obtaining the new estimates
+  #first get the pi values
+  m <- length(x)
+  
+  
+  
+  p_new <- (1/m)*sum(exqgivenx)
+  
+  if(p_new<0.5){
+    p_new <- 0.5
+  }
+  
+  
+
+    #the log likelihood uses the data given from the maximization     function
+    comloglik <- function(par){
+  
+    theta1 <- par[1]
+    gamma1 <- par[2]
+    beta1 <- par[3]
+    loglik <- 0
+    
+    if(theta1<=0){
+      loglik <- 1000000000
+      return(loglik)
+    }
+    
+    if(gamma1<=0){
+      loglik <- 100000000
+      return(loglik)
+    }
+    
+    if(beta1<=1){
+      loglik <- 100000000
+      return(loglik)
+    }
+    
+    for(k in 1:m){
+       loglik <- loglik + exqgivenx[k]*log(rig(x[k],theta1,gamma1)) +(1-exqgivenx[k])*log(rig(x[k],theta1,gamma1*beta1)) 
+      }
+    negative <- -loglik
+    return(negative)
+  }
+
+    
+  #I used the pth iteration values for the initial values in optim 
+  op <- optim(c(theta_old,gamma_old, beta_old), comloglik,method = "BFGS")
+  theta_new <- op$par[1]
+  gamma_new <- op$par[2]
+  beta_new <-  op$par[3]
+  
+  
+  #the matrix of the parameters
+  matrixparm <- cbind(p_new,theta_new,gamma_new, beta_new)
+  
+  return(matrixparm)
+  
+  
+}
+
+
+```
+
+
+Putting the steps together
+```{r}
+#the incomplete log likelihood used to check convergence:
+incomloglikcontam <- function(x,p,theta,gamma,beta){ #g is the number of pdfs in mixture
+    m <- length(x)
+    loglik <- 0
+    sum <-0
+    for(k in 1:m){
+      
+      sum <- p*rig(x[k],theta,gamma) +(1-p)*rig(x[k],theta,gamma*beta) 
+      
+      loglik <- loglik + log(sum)
+    }
+    
+    return(loglik)
+  }
+
+
+
+
+emcontam <- function(x,p_int, theta_int, gamma_int, beta_int){ 
+  condition <- 1000
+  p <- vector()
+  p <- p_int
+
+  
+  #first iteration
+  exqgivenx <- expectationcontam(x,p,theta = theta_int, gamma = gamma_int, beta=beta_int)
+  parameters <- maximizationcontam(x=x,exqgivenx, theta_old = theta_int,gamma_old = gamma_int, beta_old = beta_int)
+  
+  #the vector containing the loglikelihoods
+  loglik1 <- vector()
+  loglik_first <- incomloglikcontam(x=x,p =parameters[1,1],theta = parameters[1,2], gamma = parameters[1,3], beta=parameters[1,4])
+  i <- 1
+  loglik1[i] <- loglik_first
+  ai <- vector()
+  ai[1] <- 0
+  linf <- vector()
+  linf[1] <- 0
+  parameters_old <- vector()
+  
+  while(condition>0){
+    i <- i+1
+    
+    parameters_old <- parameters
+    #we get the expected values for the next iteration using the prev parameters however not for the expectation func we only give one pi_i value
+    exqgivenx <- expectationcontam(x,p=parameters[1,1],theta = parameters[1,2], gamma = parameters[1,3], beta = parameters[1,4])
+    #usig prev parameters and expectation func above we get the maximazation
+    parameters <- maximizationcontam(x=x,exqgivenx, theta_old = parameters[1,2],gamma_old =parameters[1,3], beta_old = parameters[1,4])
+    
+    loglik1[i] <- incomloglikcontam(x=x,p=parameters[1,1],theta = parameters[1,2], gamma = parameters[1,3], beta = parameters[1,4])
+    
+    if(i==3){
+      ai[i-1] <- (loglik1[i]-loglik1[i-1])/(loglik1[i-1]-loglik1[i-2])
+    }
+    
+    
+    if(i>3){
+      ai[i-1] <- (loglik1[i]-loglik1[i-1])/(loglik1[i-1]-loglik1[i-2])
+      linf[i-1] <- loglik1[i-2] +(1/(1-ai[i-1]))*(loglik1[i-1]-loglik1[i-2])
+      linf[i-2] <- loglik1[i-3] +(1/(1-ai[i-2]))*(loglik1[i-2]-loglik1[i-3])
+    }
+    
+    #print(ai)
+    #print(linf)
+    #print(loglik1)
+    
+    if(i>3){
+      if(is.na(ai[i-1])){
+      condition <- -1
+    }
+    }
+    
+    if(i>3){
+      if(ai[i-1]==1){
+      condition <- -1
+    }
+    }
+    
+    if(i>3){
+      if(abs(linf[i-1]-linf[i-2])<0.0001){
+        condition <- -1
+      }
+      
+    }
+    
+    
+
+  }
+  #print(i)
+  #print(loglik1)
+  param <- cbind(parameters_old,loglik1[i-1])
+  return(param)
+}
+```
+
+Simulation function:
+```{r}
+library(VGAM)
+
+simulation <- function(m,theta,gamma, beta, p){ #m is the number of values that need to be simulated
+  
+
+  gamma2 <- gamma*beta
+
+  #parameters for ref dist
+  mu1 <- sqrt(theta*(theta+3*gamma))
+  lambda1 <- (theta*(theta+3*gamma))/gamma
+
+  #parameters for the dist of outliers
+  mu2 <- sqrt(theta*(theta+3*gamma2))
+  lambda2 <- (theta*(theta+3*gamma2))/gamma2
+  
+  q1 <- 1-p
+  m1 <- round(m*p,0)
+  m2 <- round(m*q1,0)
+  
+  #print(m1)
+  #print(m2)
+  simdist1 <- rinv.gaussian(n=m1,mu=mu1,lambda=lambda1)
+  simdist2 <- rinv.gaussian(n=m2,mu=mu2,lambda=lambda2)
+
+  sim <- c(simdist1, simdist2)
+
+  sim1 <- sample(sim,size=m, replace=FALSE) #so that the values are more random
+  #(hist(sim1))
+  return(sim1)
+}
+```
+
+
+function for initializing the simulation
+```{r}
+
+initializecontam2 <- function(sim1){ #sim1 is the simulated values
+  # creating a loglikelihood vector to contain the last loglik values
+  
+  loglik <- vector()
+  n <- length(sim1)
+  #kmeans initialization
+  #print("Initializing using kmeans")
+  
+  func2 <- matrix(0,2,5)
+  
+  
+#initialization 1:
+  #print("Initializing the qk values")
+for(k in 1:2){
+  n <- length(sim1)
+
+#randomly assign the value 1 or 2 to a specific observation
+  q <- sample(c(1,2),size = n, replace=TRUE)
+  #print(q)
+
+  pvec <- vector()
+  pvec[1] <- length(q[which(q==1)])/n
+  pvec[2] <- length(q[which(q==2)])/n
+  
+  #need the pval to be greater than or equal to 0.5
+  if(pvec[1]> pvec[2]){ 
+    p <- pvec[1]
+    j <- 1 #so that we know which p value is the largest and the other parameters will be associated with them
+  }else{
+    p<- pvec[2]
+    j <- 2}
+#the means and var
+  means <- vector()
+  means[1] <- mean(sim1[which(q==1)])
+  means[2] <- mean(sim1[which(q==2)])
+
+  lambdahat <- vector()
+  
+  if(length(q[which(q==1)])<=1){
+    lambdahat[1]<- 0.1 #since beta has to be greater than 1
+  }
+  else{lambdahat[1] <- (means[1]^3)/(means[1]^3)/var(sim1[which(q==1)])}
+  
+  if(length(q[which(q==2)])<=1){
+    lambdahat[2] <- 0.1
+  }
+  else{lambdahat[2] <- (means[2]^3)/var(sim1[which(q==2)])}
+  
+ 
+
+
+#getting the initial gamma and theta values
+  theta1 <- vector()
+  theta1<- means[j]*(sqrt(1+((9*(means[j]^2))/(4*lambdahat[j]^2)))-(3*means[j])/(2*lambdahat[j])) #use the values associated with the largest p value
+  
+
+  gamma1 <- vector()
+  gamma1[1] <- (means[1]^2)/lambdahat[1]
+  gamma1[2] <- (means[2]^2)/lambdahat[2]
+  
+  
+
+  
+  if(gamma1[1]>gamma1[2]){
+    beta1 <- gamma1[1]/gamma1[2]
+    gamma11 <- gamma1[2]
+  }else{beta1 <- gamma1[2]/gamma1[1]
+    gamma11 <- gamma1[1]}
+  
+  
+  func2[k,] <- emcontam(x=sim1,p_int=p, theta_int=theta1, gamma_int=gamma11, beta_int = beta1)
+  #print("Initial :")
+  #print(g)
+  #print(func2)
+  loglik[k] <- func2[k,5]
+  }
+  highestloklik <- max(loglik)
+  highestinitial <- which.max(loglik)
+  #rbind(func,func2)
+  return(func2[highestinitial,])
+}
+```
+
+
+
+
+
+Simulating for different p values
+```{r}
+set.seed(500) # so that the results can be replicated
+
+Nit <- 200 #the number of iterations
+
+p1 <- 0.7
+p2 <- 0.8
+p3 <- 0.9
+
+parameters21 <- matrix(0,Nit,5)
+parameters22 <- matrix(0,Nit,5)
+parameters23 <- matrix(0,Nit,5)
+
+n <- 500
+theta <- 1
+gamma <- 1
+beta <- 50
+ 
+
+for(i in 1:Nit){
+  print(i)
+  sim <- simulation(n,theta,gamma,beta,p1)
+  parameters21[i,] <- initializecontam2(sim)
+}
+
+for(i in 1:Nit){
+  print(i)
+  sim <- simulation(n,theta,gamma,beta,p2)
+  parameters22[i,] <- initializecontam2(sim)
+}
+
+for(i in 1:Nit){
+  print(i)
+  sim <- simulation(n,theta,gamma,beta,p3)
+  parameters23[i,] <- initializecontam2(sim)
+}
+```
+
+
+Simulating for different betas
+```{r}
+set.seed(500) # so that the results can be replicated
+
+Nit <- 200 #the number of iterations
+beta1 <- 20
+beta3 <- 70
+
+parameters31 <- matrix(0,Nit,5) #saving the different parameter values in here
+parameters32 <- matrix(0,Nit,5)
+
+
+n <- 500
+theta <- 1
+gamma <- 1
+p <- 0.8 
+
+for(i in 1:Nit){
+  print(i)
+  sim <- simulation(n,theta,gamma,beta1,p)
+  parameters31[i,] <- initializecontam2(sim)
+}
+
+for(i in 1:Nit){
+  print(i)
+  sim <- simulation(n,theta,gamma,beta3,p)
+  parameters32[i,] <- initializecontam2(sim)
+}
+
+
+```
+
+
+Obtaining the averages of the estimated parameters and the standard deviations:
+
+```{r}
+#creating an extra column for gamma*beta
+parameters21new <- cbind(parameters21, parameters21[,3]*parameters21[,4])
+
+parameters22new<- cbind(parameters22, parameters22[,3]*parameters22[,4])
+
+parameters23 <- cbind(parameters23, parameters23[,3]*parameters23[,4])
+
+parameters31 <- cbind(parameters31, parameters31[,3]*parameters31[,4])
+
+parameters32 <- cbind(parameters32, parameters32[,3]*parameters32[,4])
+
+```
+
+The averages and standard deviations for the different p values:
+```{r}
+#for the diff p-vals:
+means1 <- colMeans(parameters21new)
+means2 <- colMeans(parameters22new)
+means3 <- colMeans(parameters23)
+
+
+
+means1
+means2
+means3
+
+
+standarddev1 <- matrix(0,1,5)
+standarddev1[1,1] <- sqrt(var(parameters21new[,1]))
+standarddev1[1,2] <- sqrt(var(parameters21new[,2]))
+standarddev1[1,3] <- sqrt(var(parameters21new[,3]))
+standarddev1[1,4] <- sqrt(var(parameters21new[,4]))
+standarddev1[1,5] <- sqrt(var(parameters21new[,6]))
+
+standarddev1
+
+standarddev2 <- matrix(0,1,5)
+standarddev2[1,1] <- sqrt(var(parameters22new[,1]))
+standarddev2[1,2] <- sqrt(var(parameters22new[,2]))
+standarddev2[1,3] <- sqrt(var(parameters22new[,3]))
+standarddev2[1,4] <- sqrt(var(parameters22new[,4]))
+standarddev2[1,5] <- sqrt(var(parameters22new[,6]))
+
+standarddev2
+
+standarddev3 <- matrix(0,1,5)
+
+standarddev3[1,1] <-sqrt(var(parameters23[,1]))
+standarddev3[1,2] <- sqrt(var(parameters23[,2]))
+standarddev3[1,3] <- sqrt(var(parameters23[,3]))
+standarddev3[1,4] <-sqrt(var(parameters23[,4]))
+standarddev3[1,5] <- sqrt(var(parameters23[,6]))
+
+standarddev3
+```
+
+The averages and standard deviations for the different beta values:
+```{r}
+#for diff beta values
+means4 <- colMeans(parameters31)
+means5 <- colMeans(parameters32)
+
+
+means4
+means5
+
+
+standarddev4 <- matrix(0,1,5)
+standarddev4[1,1] <- sqrt(var(parameters31[,1]))
+standarddev4[1,2] <- sqrt(var(parameters31[,2]))
+standarddev4[1,3] <- sqrt(var(parameters31[,3]))
+standarddev4[1,4] <- sqrt(var(parameters31[,4]))
+standarddev4[1,5] <- sqrt(var(parameters31[,6]))
+
+standarddev4
+
+standarddev5 <- matrix(0,1,5)
+standarddev5[1,1] <- sqrt(var(parameters32[,1]))
+standarddev5[1,2] <- sqrt(var(parameters32[,2]))
+standarddev5[1,3] <- sqrt(var(parameters32[,3]))
+standarddev5[1,4] <- sqrt(var(parameters32[,4]))
+standarddev5[1,5] <- sqrt(var(parameters32[,6]))
+
+standarddev5
+```

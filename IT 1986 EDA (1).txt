@@ -1,0 +1,37 @@
+library(ggplot2)             
+library(matrixcalc)            
+             
+ #reading the data in          
+df2 <- read.LIS('it86h')  
+             
+             
+Y <- df2$hilabour     #household labour income values  
+print(length(Y)) #number of values  
+                                       
+df2 <- df2[ !is.na(Y) & Y>0,]   
+  
+Y <- Y[Y>0 & !is.na(Y)] #exclude all the 0 values  
+print(length(Y)) #number of non-zero values  
+         
+print(summary(Y, digits=10))             
+             
+weights <- df2$hwgt           #the sample weights  
+print(summary(Y))   
+print(var(Y))   
+ 
+#obtaining the mode:  
+newweight <- weights   
+X <- Y  
+newweight2 <- newweight/sum(newweight)       
+     
+dens <-   density(X,weights=newweight2)     
+     
+mode <- dens$x[which.max(dens$y)]     
+     
+print(mode)     
+  
+#for the weighted histogram  
+newweight <- weights         
+X <- Y/1000  
+newdat <- data.frame(X, newweight)  
+ggplot(newdat, aes(x = X, y = ..density.., weight = newweight)) + geom_histogram(binwidth = 3, colour="black", boundary=0)+labs(x="Household Labour Income values in thousands of Euro",y="Density")+theme_light()+scale_x_continuous(breaks=seq(0,460,40)) +theme( axis.text=element_text(size=12), axis.title=element_text(size=12))

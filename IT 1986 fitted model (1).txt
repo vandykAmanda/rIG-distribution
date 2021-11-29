@@ -1,0 +1,31 @@
+#This code draws the fitted model 
+ 
+library(ggplot2)           
+library(matrixcalc)          
+df2 <- read.LIS('it86h')                 
+Y <- df2$hilabour                            
+df2 <- df2[Y>0 & !is.na(Y),]            
+           
+weights <- df2$hwgt           
+Y <- Y[Y>0 & !is.na(Y)]                       
+#the data         
+newweight <- weights        
+X <- Y/1000        
+ 
+#the rIG density function 
+rig <- function(x,theta, gamma){      
+  inside <- -(x-sqrt(theta*(theta+3*gamma)))^2 #a variable containing the top part of the fraction in the exp     
+  dens <- sqrt((theta*(theta+3*gamma))/(2*pi*gamma*(x^3)))*exp(inside/(2*gamma*x))     
+  return(dens)     
+}     
+    
+#Contaminated density function    
+contam <- function(x,theta,gamma,p,beta){     
+  dens <- p*rig(x,theta,gamma) +(1-p)*rig(x,theta,gamma*beta)     
+  return(dens)     
+}     
+     
+#obtaining the density values for the X values using the fitted model parameters    
+fitY <- contam(X,4.949934,6.022616, 0.992650,21.146270)           
+newdat <- data.frame(X, newweight,fitY)      
+ggplot(newdat, aes(x = X, y = ..density.., weight = newweight)) + geom_histogram(binwidth = 3, colour="black", boundary=0)+labs(x="Household Labour Income values in thousands of Euro",y="Density")+theme_light()+scale_x_continuous(breaks=seq(0,460,40)) +geom_line(aes(x=X,y=fitY), color="red")+labs(x="Household Labour Income values in thousands of Euro",y="Density")+theme( axis.text=element_text(size=12), axis.title=element_text(size=12))
